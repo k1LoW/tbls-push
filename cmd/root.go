@@ -22,47 +22,105 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
-	"github.com/spf13/cobra"
+	"io/ioutil"
+	"log"
 	"os"
+	"path/filepath"
+
+	"github.com/k1LoW/ghput/gh"
+	"github.com/k1LoW/tbls-push/version"
+	"github.com/k1LoW/tbls/datasource"
+	"github.com/spf13/cobra"
 )
 
+var (
+	owner     string
+	repo      string
+	branch    string
+	namespace string
+)
 
-
-// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "tbls-push",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "push tbls schema data",
+	Long:  `push tbls schema data.`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if owner == "" || repo == "" || branch == "" {
+			return errors.New("`tbls push` need `--owner` AND `--repo` AND `--branch` flag")
+		}
+		return nil
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		schema := os.Getenv("TBLS_SCHEMA")
+		if schema == "" {
+			printFatalln(cmd, errors.New("env `TBLS_SCHEMA` not found"))
+		}
+		s, err := datasource.AnalyzeJSONStringOrFile(schema)
+		if err != nil {
+			printFatalln(cmd, err)
+		}
+		b, err := ioutil.ReadFile(filepath.Clean(schema))
+		if err != nil {
+			printFatalln(cmd, err)
+		}
+		key := "tbls-push"
+		message := "tbls-push"
+		path := filepath.Join("tbls.d", namespace, fmt.Sprintf("%s.yml", s.Name))
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+		ctx := context.Background()
+		g, err := gh.New(owner, repo, key)
+		if err != nil {
+			printFatalln(cmd, err)
+		}
+		if err := g.CommitAndPush(ctx, branch, string(b), path, message); err != nil {
+			printFatalln(cmd, err)
+		}
+	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	rootCmd.SetOut(os.Stdout)
+	rootCmd.SetErr(os.Stderr)
+
+	log.SetOutput(ioutil.Discard)
+	if env := os.Getenv("DEBUG"); env != "" {
+		debug, err := os.Create(fmt.Sprintf("%s.debug", version.Name))
+		if err != nil {
+			printFatalln(rootCmd, err)
+		}
+		log.SetOutput(debug)
+	}
+
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		printFatalln(rootCmd, err)
 	}
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.tbls-push.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().StringVarP(&owner, "owner", "", "", "repository owner")
+	rootCmd.Flags().StringVarP(&repo, "repo", "", "", "repository name")
+	rootCmd.Flags().StringVarP(&branch, "branch", "", "master", "target branch")
+	rootCmd.Flags().StringVarP(&namespace, "namespace", "", "", "namespace")
 }
 
+// https://github.com/spf13/cobra/pull/894
+func printErrln(c *cobra.Command, i ...interface{}) {
+	c.PrintErr(fmt.Sprintln(i...))
+}
 
+func printErrf(c *cobra.Command, format string, i ...interface{}) {
+	c.PrintErr(fmt.Sprintf(format, i...))
+}
+
+func printFatalln(c *cobra.Command, i ...interface{}) {
+	printErrln(c, i...)
+	os.Exit(1)
+}
+
+func printFatalf(c *cobra.Command, format string, i ...interface{}) {
+	printErrf(c, format, i...)
+	os.Exit(1)
+}
