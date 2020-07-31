@@ -45,8 +45,8 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "tbls-push",
-	Short: "push tbls schema data",
-	Long:  `push tbls schema data.`,
+	Short: "tbls-push is an external subcommand of tbls for pushing schema data (schema.json) to target GitHub repository",
+	Long:  `tbls-push is an external subcommand of tbls for pushing schema data (schema.json) to target GitHub repository.`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if owner == "" || repo == "" || branch == "" {
 			return errors.New("`tbls push` need `--owner` AND `--repo` AND `--branch` flag")
