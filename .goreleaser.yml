@@ -1,0 +1,74 @@
+before:
+  hooks:
+    - go mod download
+    - go mod tidy
+builds:
+-
+  id: tbls-push-linux
+  env:
+    - CGO_ENABLED=0
+  goos:
+    - linux
+  ldflags:
+    - -s -w -X github.com/k1LoW/tbls-push.version={{.Version}} -X github.com/k1LoW/tbls-push.commit={{.FullCommit}} -X github.com/k1LoW/tbls-push.date={{.Date}} -X github.com/k1LoW/tbls-push/version.Version={{.Version}}
+-
+  id: tbls-push-darwin
+  env:
+    - CGO_ENABLED=0
+  goos:
+    - darwin
+  ldflags:
+    - -s -w -X github.com/k1LoW/tbls-push.version={{.Version}} -X github.com/k1LoW/tbls-push.commit={{.FullCommit}} -X github.com/k1LoW/tbls-push.date={{.Date}} -X github.com/k1LoW/tbls-push/version.Version={{.Version}}
+archives:
+-
+  id: tbls-push-archive
+  name_template: '{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}'
+  format_overrides:
+    - goos: darwin
+      format: zip
+  files:
+    - CREDITS
+    - README.md
+    - CHANGELOG.md
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Version }}-next"
+changelog:
+  skip: true
+brews:
+-
+  name: tbls-push
+  github:
+    owner: k1LoW
+    name: homebrew-tap
+  commit_author:
+    name: k1LoW
+    email: k1lowxb@gmail.com
+  homepage: https://github.com/k1LoW/tbls-push
+  description: tbls-push is an external subcommand of tbls for pushing schema data (schema.json) to target GitHub repository.
+  dependencies:
+    - tbls
+  install: |
+    system './tbls-push', 'completion', 'bash', '--out', 'tbls-push.bash'
+    system './tbls-push', 'completion', 'zsh', '--out', 'tbls-push.zsh'
+    bin.install 'tbls-push'
+    bash_completion.install 'tbls-push.bash' => 'tbls-push'
+    zsh_completion.install 'tbls-push.zsh' => '_tbls-push'
+nfpms:
+  -
+    id: tbls-push-nfpms
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}-1_{{ .Arch }}"
+    builds:
+    - tbls-push-linux
+    homepage: https://github.com/k1LoW/tbls-push
+    maintainer: Ken'ichiro Oyama <k1lowxb@gmail.com>
+    description: tbls-push is an external subcommand of tbls for pushing schema data (schema.json) to target GitHub repository.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    dependencies:
+      - tbls
+    bindir: /usr/bin
+    epoch: 1
