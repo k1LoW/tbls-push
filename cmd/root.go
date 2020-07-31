@@ -41,6 +41,7 @@ var (
 	repo      string
 	branch    string
 	namespace string
+	message   string
 )
 
 var rootCmd = &cobra.Command{
@@ -67,7 +68,17 @@ var rootCmd = &cobra.Command{
 			printFatalln(cmd, err)
 		}
 		key := "tbls-push"
-		message := "tbls-push"
+		if message == "" {
+			user := "tbls-push"
+			if os.Getenv("USER") != "" {
+				user = os.Getenv("USER")
+			}
+			hn, err := os.Hostname()
+			if err != nil {
+				hn = "unknown hostname"
+			}
+			message = fmt.Sprintf("commit by %s (%s)", user, hn) // TODO: more info
+		}
 		path := filepath.Join("tbls.d", namespace, fmt.Sprintf("%s.yml", s.Name))
 
 		ctx := context.Background()
@@ -104,6 +115,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&repo, "repo", "", "", "repository name")
 	rootCmd.Flags().StringVarP(&branch, "branch", "", "master", "target branch")
 	rootCmd.Flags().StringVarP(&namespace, "namespace", "", "", "namespace")
+	rootCmd.Flags().StringVarP(&message, "message", "", "", "commit message")
 }
 
 // https://github.com/spf13/cobra/pull/894
